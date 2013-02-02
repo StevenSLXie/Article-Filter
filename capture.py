@@ -8,6 +8,7 @@ import jieba.analyse
 from BeautifulSoup import BeautifulSoup
 import csv
 from sklearn.ensemble import RandomForestClassifier
+from numpy import *
 
 
 def encode(s):
@@ -97,9 +98,37 @@ def blog_dld(articles):
 
 def analyzeArticle(addr,artType):
 	addr = '/Users/xingmanjie/Applications/Python/Recommend/'+artType+'/'+str(addr)+'.txt'
-	f = open(addr).read()
+	f = open(addr).read().replace('\n','')
+	f = f.replace('我们','')
+	f = f.replace('&nbsp','')
+	f = f.replace('他们','')
+	f = f.replace('的','')
+	f = f.replace('这','')
+	f = f.replace('那','')
+	f = f.replace('了','')
+	f = f.replace('就','')
+	f = f.replace('会','')
+	f = f.replace('可能','')
+
 #	tags = jieba.analyse.extract_tags(f,topK=10)
+#	print f
 	return f
+
+def createTrainingData2(num=35,artType='wrong'):
+	train = ''
+	for i in range(num+1):
+		temp = ''
+		temp = analyzeArticle(i+1,artType)
+		if artType == 'Positive':
+			target = '\t1\n'
+		else:
+			target = '\t0\n'
+		temp = temp + target 
+#train.append(temp)
+		train = train + temp
+#	print train
+	file('train'+artType+'.txt','w').write(train)
+
 
 def formKeyWords(artNum=35,artType = 'wrong'):
 	h = []
@@ -108,7 +137,7 @@ def formKeyWords(artNum=35,artType = 'wrong'):
 		f =  analyzeArticle(i+1,artType)
 		temp = temp + f
 
-	tags = jieba.analyse.extract_tags(temp,topK=150)
+	tags = jieba.analyse.extract_tags(temp,topK=500)
 	print ",".join(tags)
 	return tags
 
@@ -121,24 +150,43 @@ def saveKeyWords(fileName):
 			writer.writerow(i)
 	'''
 
-def mergeKeyWords():
-	neg=formKeyWords(35,'Negative')
-	pos=formKeyWords(35,'Positive')
-	key = []
-	for i in range(len(pos)):
-		pos[i] = pos[i].encode('utf-8')
-		key.append(pos[i])
+def mergeTwoItems(a,b):
+	mer = []
+	for i in range(len(a)):
+#		a[i]= a[i].encode('utf-8')
+		mer.append(a[i])
 	
-	for i in range(len(neg)):
+	for i in range(len(b)):
 		flag = 0
-		neg[i] = neg[i].encode('utf-8')
-		for j in range(len(pos)):
-			if neg[i] == pos[j]:
+#		b[i]= b[i].encode('utf-8')
+		for j in range(len(a)):
+			if b[i]==a[j]:
 				flag = 1
 				break
 		if flag == 0:
-			key.append(neg[i])
-	print ",".join(key)
+			mer.append(b[i])
+	return mer
+
+def encodeToUtf(a):
+	new = []
+	for i in range(len(a)):
+		a[i] = a[i].encode('utf-8')
+		new.append(a[i])
+	return new
+
+def mergeKeyWords():
+
+	neg=formKeyWords(35,'Negative')
+	pos=formKeyWords(35,'Positive')
+	sci=formKeyWords(35,'Science')
+
+	neg = encodeToUtf(neg)
+	pos = encodeToUtf(pos)
+	sci = encodeToUtf(sci)
+	
+	key = mergeTwoItems(neg,pos)
+	key = mergeTwoItems(sci,key)
+
 	return key
 
 
@@ -148,7 +196,7 @@ def createArtVector(tags,addr,artType):
 #		tags[i] = tags[i].encode('utf-8')
 	addr1 = '/Users/xingmanjie/Applications/Python/Recommend/'+artType+'/'+str(addr)+'.txt'
 	f = open(addr1).read()
-	f = jieba.analyse.extract_tags(f,topK=100)
+	f = jieba.analyse.extract_tags(f,topK=300)
 
 	for i in range(len(f)):
 		f[i] = f[i].encode('utf-8')
@@ -165,9 +213,11 @@ def createArtVector(tags,addr,artType):
 		if flag == 0:
 			v.append(0)
 	if artType == 'Positive':
-		v.append(1)  # y, indicate that is positive
+		v.append(2)  # y, indicate that is positive
 	elif artType == 'Negative':
 		v.append(0)
+	elif artType == 'Science':
+		v.append(1)
 	return v
 
 def createTrainingData(num = 35,artType = 'wrong'):
@@ -181,6 +231,27 @@ def createTrainingData(num = 35,artType = 'wrong'):
 		for i in train:
 			writer.writerow(i)
 
+
+def createAllTraining(num=35):
+	train = []
+	for i in range(num):
+		tags = mergeKeyWords()
+		train.append(createArtVector(tags,i+1,'Positive'))
+
+	for i in range(num):
+		tags = mergeKeyWords()
+		train.append(createArtVector(tags,i+1,'Negative'))
+
+	for i in range(num):
+		tags = mergeKeyWords()
+		train.append(createArtVector(tags,i+1,'Science'))
+
+	with open('Train.csv', 'wb') as csvfile:
+		writer = csv.writer(csvfile, delimiter=',',quotechar='|', quoting=csv.QUOTE_MINIMAL)
+		for i in train:
+			writer.writerow(i)
+	
+
 def nfzmList():
 # read nfzm's article and save
 	startPoint = 84410
@@ -191,8 +262,8 @@ def nfzmList():
 
 def cleanTrainingData(fileName = 'Train.csv'):
 	data = loadDataSet('Train.csv')
-	target = [x[-1] for x in data[0:60]]
-	train = [x[0:-1] for x in data[0:60]]
+	target = [x[-1] for x in data[0:70]]
+	train = [x[0:-1] for x in data[0:70]]
 	test = [x[0:-1] for x in data[60:68]]
 
 	target = strToInt(target)
@@ -214,6 +285,15 @@ def randomForest():
 #	print target[3]
 	return rf
 
+def loadTreeData(fileName):
+	data = loadDataSet(fileName,str=',')
+	data = strToInt(data)
+	data = array(data)
+	data = asmatrix(data)
+
+	return data
+
+
 def predictTestData():
 	target,train,test = cleanTrainingData()	
 	data = loadDataSet('Test.csv')
@@ -225,8 +305,9 @@ def predictTestData():
 	rf.fit(train,target)
 
 	predicted_probs = [x[1] for x in rf.predict_proba(data)]
-
-	print predicted_probs
+	
+	for i in range(len(predicted_probs)):
+		print i+1,predicted_probs[i]
 
 def strToInt(ori):
 	modi = []
