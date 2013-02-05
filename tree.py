@@ -12,6 +12,7 @@ from sklearn import cross_validation
 import csv
 
 
+
 def loadDataSet(fileName,str):      #general function to parse tab -delimited floats
 	dataMat = []                #assume last column is target value
 	with open(fileName) as fr:
@@ -21,61 +22,6 @@ def loadDataSet(fileName,str):      #general function to parse tab -delimited fl
 			curLine = map(float,curLine) #map all elements to float()
 			dataMat.append(curLine)
 	return dataMat
-
-
-
-def createColIndex(dataSet,itemInd): # create team index for each team
-	ColCount = 0;
-	ColInd = {}
-	for person in dataSet:
-		if shape(person)==(15,):
-#			print shape(person)
-			item = person[itemInd]
-			if item not in ColInd.values():
-				ColInd[ColCount]=item
-				ColCount += 1
-#		return ColInd
-	newDataSet = []
-	
-	for i in range(ColCount):
-		print i, ColInd[i]
-	
-	for person in dataSet:
-		if shape(person)==(15,):
-			for item in range(ColCount):
-				if person[itemInd]==ColInd[item]:
-					person[itemInd]=item
-			newDataSet.append(person)
-	return newDataSet
-
-def dataProcessing(dataSet):
-	dataSet = createColIndex(dataSet,1)
-	dataSet = createColIndex(dataSet,3)
-	dataSet = createColIndex(dataSet,5)
-	dataSet = createColIndex(dataSet,6)
-	dataSet = createColIndex(dataSet,7)
-	dataSet = createColIndex(dataSet,8)
-	dataSet = createColIndex(dataSet,9)
-	dataSet = createColIndex(dataSet,13)
-	dataSet = createColIndex(dataSet,14)
-	data = []
-	for line in dataSet:
-		fltLine = map(float,line)
-		data.append(fltLine)
-
-	return data
-
-def splitTrainAndTest(dataMat):
-	dataSize = shape(dataMat)[0]
-	sam = sample(range(dataSize),600)
-	train = []
-	test = []
-	for i in range(dataSize):
-		if i in sam:
-			train.append(dataMat[i])
-		else:
-			test.append(dataMat[i])			
-	return train,test
 
 def binSplitDataSet(dataSet, feature, value):
     mat0 = dataSet[nonzero(dataSet[:,feature] > value)[0],:][0]
@@ -207,18 +153,21 @@ def resultStat(predict,real):
 			right +=1
 	return right
 
-def randomBagging(train,test,ntree=30,leafType=regLeaf, errType=regErr,ops=(1,4)): # a random forest approach
+def randomBagging(train,test,ntree=5,leafType=regLeaf, errType=regErr,ops=(1,4)): # a random forest approach
+	d2 = shape(train)[0]
+	d1 = shape(train)[1]
+	print d1,d2
 	train = mat(train)
 	test = mat(test)
 	resultMatrix = mat(zeros((len(test),3)))
 	result = mat(zeros((len(test),1)))
 	for t in range(ntree):
-		sam = sorted(sample(range(1109),800))
-		r = [shape(train)[1]-1]
+		sam = sorted(sample(range(d1-2),d1-500))
+		r = [d1-1]
 		trainShuffle = train[:,sam+r]
 		testShuffle = test[:,sam]
 		
-		trainShuffle = trainShuffle[sample(range(shape(train)[0]),80),:]
+		trainShuffle = trainShuffle[sample(range(1,d2),10),:]
 		tree = createTree(trainShuffle,leafType,errType,ops)
 		y = createForeCast(tree,testShuffle)
 		print y
@@ -235,7 +184,52 @@ def randomBagging(train,test,ntree=30,leafType=regLeaf, errType=regErr,ops=(1,4)
 				resultMatrix[i,2] +=1
 		print t
 #	result = resultMatrix.argmax(axis=1)
-	return resultMatrix
+	return resultMatrix.argmax(axis=1)[0]
+
+# the following two functions are basically to separate the randomBagging into two so that we do not need to
+# train the tree every time new data is coming.
+
+def treeGroupForm(train,ntree=15,leafType=regLeaf, errType=regErr,ops=(1,4)):
+	d2 = shape(train)[0]
+	d1 = shape(train)[1]
+	print d1,d2
+	train = mat(train)
+	trees = []
+	sams = []
+	for t in range(ntree):
+		sam = sorted(sample(range(d1-2),d1-300))
+		r = [d1-1]
+		trainShuffle = train[:,sam+r]
+#	testShuffle = test[:,sam]
+		sams.append(sam)
+		trainShuffle = trainShuffle[sample(range(1,d2),70),:]
+		tree = createTree(trainShuffle,leafType,errType,ops)
+		trees.append(tree)
+		print t
+	return trees,sams
+
+def batchPredict(test,trees,sams):
+	resultMatrix = mat(zeros((len(test),5)))
+	result = mat(zeros((len(test),1)))
+	test = mat(test)
+	for i in range(len(sams)):
+		testShuffle = test[:,sams[i]]
+		y = createForeCast(trees[i],testShuffle)
+		print y
+		for i in range(len(y)):
+			if y[i] <= 0.5:
+				resultMatrix[i,0] +=1
+			elif y[i] <=0.9:
+				resultMatrix[i,1] +=1
+			elif y[i] <=1.1:
+				resultMatrix[i,2] +=1
+			elif y[i] <=1.5:
+				resultMatrix[i,3] +=1
+			else:
+				resultMatrix[i,4] +=1
+
+	return resultMatrix.argmax(axis=1)[0]
+
 
 def treeDecision(resultMatrix):
 	return resultMatrix.argmax(axis=1)
@@ -251,16 +245,3 @@ def randomForest(train,test):
 
 	return 	predicted_probs
 
-
-def reordering(data):
-	newData = []
-	for x in data:
-		newData.append([x[1],x[2],x[3],x[4],x[5],x[0]])
-	return newData
-
-
-def writeResult(result,fileName):
-	with open(fileName, 'wb') as csvfile:
-		writer = csv.writer(csvfile, delimiter=' ',quotechar='|', quoting=csv.QUOTE_MINIMAL)
-		for i in result:
-			writer.writerow(i)

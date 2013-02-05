@@ -9,6 +9,7 @@ from BeautifulSoup import BeautifulSoup
 import csv
 from sklearn.ensemble import RandomForestClassifier
 from numpy import *
+import tree
 
 
 def encode(s):
@@ -54,7 +55,7 @@ def writeToFile(text, filename, dirname):
         f.close()
     else:
         print filename, encode('已经存在')
- 
+
 def formatContent(url, title=' ',idStr='wrong',folderName='wrong'):
 	page = getHTML(url)
 #	print page
@@ -99,6 +100,7 @@ def blog_dld(articles):
 def analyzeArticle(addr,artType):
 	addr = '/Users/xingmanjie/Applications/Python/Recommend/'+artType+'/'+str(addr)+'.txt'
 	f = open(addr).read().replace('\n','')
+	'''
 	f = f.replace('我们','')
 	f = f.replace('&nbsp','')
 	f = f.replace('他们','')
@@ -109,9 +111,7 @@ def analyzeArticle(addr,artType):
 	f = f.replace('就','')
 	f = f.replace('会','')
 	f = f.replace('可能','')
-
-#	tags = jieba.analyse.extract_tags(f,topK=10)
-#	print f
+	'''
 	return f
 
 def createTrainingData2(num=35,artType='wrong'):
@@ -190,14 +190,19 @@ def mergeKeyWords():
 	return key
 
 
-def createArtVector(tags,addr,artType):
+def createArtVector(tags,addr,artType,source='None'):
 # transform an article into a vector indicating whether it hit the key words or not
 #	for i in range(len(tags)):
 #		tags[i] = tags[i].encode('utf-8')
-	addr1 = '/Users/xingmanjie/Applications/Python/Recommend/'+artType+'/'+str(addr)+'.txt'
-	f = open(addr1).read()
+	if source == 'None':
+		addr1 = '/Users/xingmanjie/Applications/Python/Recommend/'+artType+'/'+str(addr)+'.txt'
+		f = open(addr1).read()
+	else:
+		f = str(addr)
 	f = jieba.analyse.extract_tags(f,topK=300)
+	print f
 
+		
 	for i in range(len(f)):
 		f[i] = f[i].encode('utf-8')
 
@@ -252,14 +257,6 @@ def createAllTraining(num=35):
 			writer.writerow(i)
 	
 
-def nfzmList():
-# read nfzm's article and save
-	startPoint = 84410
-	num = 20
-	for i in range(1,num):
-		temp = startPoint + i
-		formatContent('http://www.infzm.com/content/'+str(temp),i+1,"articleContent","Negative")
-
 def cleanTrainingData(fileName = 'Train.csv'):
 	data = loadDataSet('Train.csv')
 	target = [x[-1] for x in data[0:70]]
@@ -273,8 +270,7 @@ def cleanTrainingData(fileName = 'Train.csv'):
 	return target,train,test
 
 
-def randomForest():
-	
+def randomForest():	
 	target,train,test = cleanTrainingData()
 #	print len(train[1])
 	rf = RandomForestClassifier(n_estimators=300,n_jobs=2)
@@ -308,6 +304,24 @@ def predictTestData():
 	
 	for i in range(len(predicted_probs)):
 		print i+1,predicted_probs[i]
+
+def predictSingleArticle(art,trees,sams):
+	tags = mergeKeyWords()
+	test = createArtVector(tags,art,'Test','Yes')
+	result = tree.batchPredict(test,trees,sams)
+	if result == 0:
+		return '激进左派；共产主义；支持大政府'
+	elif result == 1:
+		return '温和左派；福利主义；无特别明显经济观点'
+	elif result == 2:
+		return '无明显经济观点；可能为科普文章等'
+	elif result == 3:
+		return '中间偏右；基本支持市场经济；保守主义；强调资本主义精神等'
+	elif result == 4:
+		return '经济意义上的右派观点；支持市场经济；强调个人权利；保守主义'
+
+	
+
 
 def strToInt(ori):
 	modi = []
