@@ -1,6 +1,6 @@
 '''
 Created on Dec 9, 2012
-Predict whether the person will earn more than 50k based on census data 
+ 
 @author: Steven SL Xie
 '''
 from numpy import *
