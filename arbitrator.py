@@ -11,7 +11,6 @@ from sklearn.ensemble import RandomForestClassifier
 from numpy import *
 import tree
 
-
 def encode(s):
     return s.decode('utf-8').encode(sys.stdout.encoding, 'ignore')
  
@@ -20,7 +19,7 @@ def getHTML(url):
 	response = urllib2.urlopen(req, timeout=3000)
 	return BeautifulSoup(response,fromEncoding="gb18030")
 	
- 
+
 def visible(element):
     '''抓取可见的文本元素'''
     if element.parent.name in ['style', 'script', '[document]', 'head', 'title']:
@@ -137,7 +136,7 @@ def formKeyWords(artNum=35,artType = 'wrong'):
 		f =  analyzeArticle(i+1,artType)
 		temp = temp + f
 
-	tags = jieba.analyse.extract_tags(temp,topK=500)
+	tags = jieba.analyse.extract_tags(temp,topK=600)
 	print ",".join(tags)
 	return tags
 
@@ -199,8 +198,8 @@ def createArtVector(tags,addr,artType,source='None'):
 		f = open(addr1).read()
 	else:
 		f = str(addr)
-	f = jieba.analyse.extract_tags(f,topK=300)
-	print f
+	f = jieba.analyse.extract_tags(f,topK=400)
+#	print f
 
 		
 	for i in range(len(f)):
@@ -307,7 +306,8 @@ def predictTestData():
 
 def predictSingleArticle(art,trees,sams):
 	tags = mergeKeyWords()
-	test = createArtVector(tags,art,'Test','Yes')
+	test = createArtVector(tags,art,'Test','None')
+	print test
 	result = tree.batchPredict(test,trees,sams)
 	if result == 0:
 		return '激进左派；共产主义；支持大政府'
@@ -359,3 +359,4 @@ def init():
 	else:
 		nfzmList()
 		
+

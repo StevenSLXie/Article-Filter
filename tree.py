@@ -32,7 +32,8 @@ def regLeaf(dataSet):#returns the value used for each leaf
     return mean(dataSet[:,-1])
 
 def regErr(dataSet):
-    return var(dataSet[:,-1]) * shape(dataSet)[0]
+#print dataSet
+	return var(dataSet[:,-1]) * shape(dataSet)[0]
 
 def linearSolve(dataSet):   #helper function used in two places
     m,n = shape(dataSet)
@@ -189,7 +190,7 @@ def randomBagging(train,test,ntree=5,leafType=regLeaf, errType=regErr,ops=(1,4))
 # the following two functions are basically to separate the randomBagging into two so that we do not need to
 # train the tree every time new data is coming.
 
-def treeGroupForm(train,ntree=15,leafType=regLeaf, errType=regErr,ops=(1,4)):
+def treeGroupForm(train,ntree=50,leafType=regLeaf, errType=regErr,ops=(1,4)):
 	d2 = shape(train)[0]
 	d1 = shape(train)[1]
 	print d1,d2
@@ -197,12 +198,13 @@ def treeGroupForm(train,ntree=15,leafType=regLeaf, errType=regErr,ops=(1,4)):
 	trees = []
 	sams = []
 	for t in range(ntree):
-		sam = sorted(sample(range(d1-2),d1-300))
+		sam = sorted(sample(range(d1-2),d1-600))
 		r = [d1-1]
 		trainShuffle = train[:,sam+r]
 #	testShuffle = test[:,sam]
 		sams.append(sam)
-		trainShuffle = trainShuffle[sample(range(1,d2),70),:]
+		print sam
+		trainShuffle = trainShuffle[sample(range(1,d2),50),:]
 		tree = createTree(trainShuffle,leafType,errType,ops)
 		trees.append(tree)
 		print t
@@ -227,7 +229,7 @@ def batchPredict(test,trees,sams):
 				resultMatrix[i,3] +=1
 			else:
 				resultMatrix[i,4] +=1
-
+		print resultMatrix
 	return resultMatrix.argmax(axis=1)[0]
 
 
